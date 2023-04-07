@@ -1,4 +1,7 @@
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Security.Policy;
 using System.Text;
 
 namespace facet
@@ -6,6 +9,7 @@ namespace facet
     public partial class Form1 : Form
     {
         string dbrPath = "";
+        string source = "";
         Database db;
 
         public Form1()
@@ -132,10 +136,13 @@ namespace facet
         {
             if (filter == 0)
             {
-                for (int i = 0; i < db.columns.Length; i++)
+                try
                 {
-                    if (db.columns[i].stringValue == (string)primaryFilter.Items[primaryFilter.SelectedIndex]) { return i; }
-                }
+                    for (int i = 0; i < db.columns.Length; i++)
+                    {
+                        if (db.columns[i].stringValue == (string)primaryFilter.Items[primaryFilter.SelectedIndex]) { return i; }
+                    }
+                } catch { }
                 return -1;
             }
             else if (filter == 1)
@@ -152,10 +159,14 @@ namespace facet
             }
             else if (filter == 2)
             {
-                for (int i = 0; i < db.columns.Length; i++)
+                try
+                {
+                    for (int i = 0; i < db.columns.Length; i++)
                 {
                     if (db.columns[i].stringValue == (string)tertiaryFilter.Items[tertiaryFilter.SelectedIndex]) { return i; }
+                    }
                 }
+                catch { }
                 return -1;
             }
             else return -1;
@@ -165,19 +176,8 @@ namespace facet
         {
             openFileDialog1.ShowDialog();
             dbrPath = openFileDialog1.FileName;
-            db = new Database(File.ReadAllBytes(dbrPath));
-
-            primaryFilter.Items.Clear();
-            listView.Columns.Clear();
-            comparisonList.Columns.Clear();
-            foreach (Value v in db.Rows[0].Values)
-            {
-                primaryFilter.Items.Add(v.stringValue);
-                listView.Columns.Add(v.stringValue);
-                listView.Columns[listView.Columns.Count - 1].Width = 1000 / db.columns.Length;
-                comparisonList.Columns.Add(v.stringValue);
-                comparisonList.Columns[comparisonList.Columns.Count - 1].Width = 1000 / db.columns.Length;
-            }
+            openDatabase();
+            
         }
 
         private void listView_SelectedIndexChanged(object sender, EventArgs e)
@@ -205,6 +205,163 @@ namespace facet
                     var listViewItem = new ListViewItem(vals);
                     comparisonList.Items.Add(listViewItem);
                 }
+            }
+        }
+
+        private void openDatabase(string url = "", bool keepFilters = false)
+        {
+            int filter1 = -1;
+            int filter2 = -1;
+            int filter3 = -1;
+            TreeNode selectedTreeNode = tree.SelectedNode;
+            if (db.columns != null)
+            {
+                filter1 = getFilterIndex(0);
+                filter2 = getFilterIndex(1);
+                filter3 = getFilterIndex(2);
+            }
+            if (!File.Exists(dbrPath)) return;
+            try
+            {
+                db = new Database(File.ReadAllBytes(dbrPath));
+
+
+
+                primaryFilter.Items.Clear();
+                listView.Columns.Clear();
+                comparisonList.Columns.Clear();
+                foreach (Value v in db.Rows[0].Values)
+                {
+                    primaryFilter.Items.Add(v.stringValue);
+                    listView.Columns.Add(v.stringValue);
+                    listView.Columns[listView.Columns.Count - 1].Width = 1000 / db.columns.Length;
+                    comparisonList.Columns.Add(v.stringValue);
+                    comparisonList.Columns[comparisonList.Columns.Count - 1].Width = 1000 / db.columns.Length;
+                }
+                if (dbrPath.Contains("Simmo/Facet/temp.dbr"))
+                {
+                    source = url;
+                    addButton.Enabled = true;
+                    editButton.Enabled = false;
+                    delButton.Enabled = false;
+                    saveButton.Enabled = true;
+                }
+                else
+                {
+                    source = "local";
+                    addButton.Enabled = false;
+                    editButton.Enabled = false;
+                    delButton.Enabled = false;
+                    saveButton.Enabled = false;
+                }
+
+                if (keepFilters) { primaryFilter.SelectedIndex = filter1; secondaryFilter.SelectedIndex = filter2; tertiaryFilter.SelectedIndex = filter3; if (selectedTreeNode != null) tree.SelectedNode = selectedTreeNode; }
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
+        }
+
+        private void openURLToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string url = "";
+            using (urlPromptForm prompt = new urlPromptForm())
+            {
+                prompt.setVals("URL", "Open URL", "www.rakico.xyz:7000");
+                prompt.ShowDialog();
+                url = prompt.getResults();
+                fetchRemoteDatabase(url, true);
+            }
+        }
+
+        private void fetchRemoteDatabase(string url, bool keepFilters = false)
+        {
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                byte[] data = getBytesFromApi("getfilebytes", url);
+                if (!Directory.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo")) Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo");
+                if (!Directory.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet")) Directory.CreateDirectory(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet");
+                if (File.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet/temp.dbr")) File.Delete(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet/temp.dbr");
+                if (data.Length > 3) File.WriteAllBytes(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet/temp.dbr", data);
+                else MessageBox.Show("Could not connect to database on " + url);
+                dbrPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "/Simmo/Facet/temp.dbr";
+                openDatabase(url, keepFilters);
+            }
+        }
+
+        private byte[] getBytesFromApi(string req, string url = "")
+        {
+            if (url == "") url = source;
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                if (!url.StartsWith("http")) url = "http://" + url;
+                client.BaseAddress = new Uri(url);
+                HttpResponseMessage response = client.GetAsync("/" + req).Result;
+                response.EnsureSuccessStatusCode();
+                return response.Content.ReadAsByteArrayAsync().Result;
+            }
+        }
+
+        private string getStringFromApi(string req, string url = "")
+        {
+            if (url == "") url = source;
+            using (var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate }))
+            {
+                if (!url.StartsWith("http")) url = "http://" + url;
+                client.BaseAddress = new Uri(url);
+                HttpResponseMessage response = client.GetAsync("/" + req).Result;
+                response.EnsureSuccessStatusCode();
+                return response.Content.ReadAsStringAsync().Result;
+            }
+        }
+
+        private void reloadDBRToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (source == "local") openDatabase(keepFilters:true);
+            else if (source != "") fetchRemoteDatabase(source, true);
+        }
+
+        private void saveButton_Click(object sender, EventArgs e)
+        {
+            if (source != "local")
+            {
+                string response = getStringFromApi("save");
+                if (response != "Success") MessageBox.Show(response);
+            }
+            fetchRemoteDatabase(source, true);
+        }
+
+        private void addButton_Click(object sender, EventArgs e)
+        {
+            string req = "";
+            using (urlPromptForm prompt = new urlPromptForm())
+            {
+                string input = "";
+                foreach (Value v in db.columns) input += $"{{{v.stringValue}}} ";
+
+                if (tree.SelectedNode != null)
+                {
+                    if (tree.SelectedNode.Parent != null)
+                    {
+                        MessageBox.Show("Replacing: " + $"{{{db.columns[getFilterIndex(0)].stringValue}}}" + " with " + tree.SelectedNode.Parent.Text);
+                        input = input.Replace($"{{{db.columns[getFilterIndex(0)].stringValue}}}", tree.SelectedNode.Parent.Text);
+                        MessageBox.Show("Replacing: " + $"{{{db.columns[getFilterIndex(1)].stringValue}}}" + " with " + tree.SelectedNode.Text);
+                        input = input.Replace($"{{{db.columns[getFilterIndex(1)].stringValue}}}", tree.SelectedNode.Text);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Replacing: " + $"{{{db.columns[getFilterIndex(0)].stringValue}}}" + " with " + tree.SelectedNode.Text);
+                        input = input.Replace($"{{{db.columns[getFilterIndex(0)].stringValue}}}", tree.SelectedNode.Text);
+                    }
+                }
+
+                prompt.setVals("addrow", "Add Entry", input);
+                
+                prompt.ShowDialog();
+                req = prompt.getResults();
+                if (req.Contains("xCANCELLEDx") || req.Contains(input)) return;
+                if (!req.StartsWith("addrow")) req = "addrow " + req;
+                MessageBox.Show(getStringFromApi(req));
+                getStringFromApi("save");
+                fetchRemoteDatabase(source, true);
             }
         }
     }

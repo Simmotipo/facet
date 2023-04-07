@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\simmo\\source\\repos\\facet\\facet\\facet.csproj": {}
+    "C:\\Users\\simmo\\Source\\Repos\\Simmotipo\\facet\\facet\\facet.csproj": {}
   },
   "projects": {
-    "C:\\Users\\simmo\\source\\repos\\facet\\facet\\facet.csproj": {
+    "C:\\Users\\simmo\\Source\\Repos\\Simmotipo\\facet\\facet\\facet.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\simmo\\source\\repos\\facet\\facet\\facet.csproj",
+        "projectUniqueName": "C:\\Users\\simmo\\Source\\Repos\\Simmotipo\\facet\\facet\\facet.csproj",
         "projectName": "facet",
-        "projectPath": "C:\\Users\\simmo\\source\\repos\\facet\\facet\\facet.csproj",
+        "projectPath": "C:\\Users\\simmo\\Source\\Repos\\Simmotipo\\facet\\facet\\facet.csproj",
         "packagesPath": "C:\\Users\\simmo\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\simmo\\source\\repos\\facet\\facet\\obj\\",
+        "outputPath": "C:\\Users\\simmo\\Source\\Repos\\Simmotipo\\facet\\facet\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
